@@ -132,6 +132,11 @@ add_library(llvm2kittelIntTRS STATIC
   include/llvm2kittel/IntTRS/Term.h
 )
 
+add_library(llvm2kittelLanguage STATIC
+  lib/Language/LanguageData.cpp
+  include/llvm2kittel/Language/LanguageData.h
+)
+
 add_library(llvm2kittelTransform STATIC
   lib/Transform/BasicBlockSorter.cpp
   lib/Transform/BitcastCallEliminator.cpp
@@ -172,7 +177,7 @@ add_executable(llvm2kittel
 
 set_target_properties(
   llvm2kittel llvm2kittelAnalysis llvm2kittelComplexity llvm2kittelCore
-  llvm2kittelIntTRS llvm2kittelTransform llvm2kittelUtil
+  llvm2kittelIntTRS llvm2kittelLanguage llvm2kittelTransform llvm2kittelUtil
   PROPERTIES COMPILE_FLAGS "${LLVM_CXXFLAGS} ${GMP_CXXFLAGS}" ${WARN_FLAGS}
 )
 
@@ -190,6 +195,9 @@ target_link_libraries(llvm2kittelIntTRS
   ${LLVM_LIBS} ${LLVM_LDFLAGS}
   ${GMP_LIBS} ${GMP_LDFLAGS}
 )
+target_link_libraries(llvm2kittelLanguage
+  ${LLVM_LIBS} ${LLVM_LDFLAGS}
+)
 target_link_libraries(llvm2kittelTransform
   ${LLVM_LIBS} ${LLVM_LDFLAGS}
 )
@@ -199,5 +207,5 @@ target_link_libraries(llvm2kittelUtil
 
 target_link_libraries(llvm2kittel
   llvm2kittelAnalysis llvm2kittelComplexity llvm2kittelCore
-  llvm2kittelIntTRS llvm2kittelTransform llvm2kittelUtil
+  llvm2kittelIntTRS llvm2kittelLanguage llvm2kittelTransform llvm2kittelUtil
 )

@@ -21,6 +21,7 @@
 #include "llvm2kittel/Complexity/UniformComplexityTuplePrinter.h"
 #include "llvm2kittel/IntTRS/Polynomial.h"
 #include "llvm2kittel/IntTRS/Rule.h"
+#include "llvm2kittel/Language/LanguageData.h"
 #include "llvm2kittel/Transform/BasicBlockSorter.h"
 #include "llvm2kittel/Transform/BitcastCallEliminator.h"
 #include "llvm2kittel/Transform/ConstantExprEliminator.h"
@@ -82,6 +83,7 @@ void versionPrinter()
 
 static cl::opt<std::string> filename(cl::Positional, cl::Required, cl::desc("<input bitcode>"), cl::init(std::string()));
 static cl::opt<std::string> functionname("function", cl::desc("Start function for the termination analysis"), cl::init(std::string()));
+static cl::opt<std::string> sourceLanguage("l", cl::desc("Module source language (c, cu, cl; default c)"), cl::init(std::string()));
 static cl::opt<unsigned int> numInlines("inline", cl::desc("Maximum number of function inline steps"), cl::init(0));
 static cl::opt<bool> eagerInline("eager-inline", cl::desc("Exhaustively inline (acyclic call hierarchies only)"), cl::init(false));
 
@@ -115,7 +117,7 @@ static cl::opt<bool> dumpLL("dump-ll", cl::desc("Dump transformed bitcode into a
 static cl::opt<bool> complexityTuples("complexity-tuples", cl::desc("Generate complexity tuples"), cl::init(false), cl::ReallyHidden);
 static cl::opt<bool> uniformComplexityTuples("uniform-complexity-tuples", cl::desc("Generate uniform complexity tuples"), cl::init(false), cl::ReallyHidden);
 
-void transformModule(llvm::Module *module, llvm::Function *function, NondefFactory &ndf)
+void transformModule(llvm::Module *module, llvm::Function *function, NondefFactory &ndf, LanguageData::SourceLanguage SL)
 {
 #if LLVM_VERSION < VERSION(3, 2)
     llvm::TargetData *TD = NULL;
@@ -165,7 +167,9 @@ void transformModule(llvm::Module *module, llvm::Function *function, NondefFacto
     llvmPasses.add(createMem2RegPass(ndf));
 
     // Hoist
-    llvmPasses.add(createHoisterPass());
+    if (SL != LanguageData::SL_CUDA && SL != LanguageData::SL_OpenCL) {
+        llvmPasses.add(createHoisterPass());
+    }
 
     // DCE
     llvmPasses.add(llvm::createDeadCodeEliminationPass());
@@ -338,6 +342,18 @@ int main(int argc, char *argv[])
         return 333;
     }
 
+    LanguageData::SourceLanguage SL;
+    if (sourceLanguage.empty() || sourceLanguage == "c") {
+        SL = LanguageData::SL_C;
+    } else if (sourceLanguage == "cu") {
+        SL = LanguageData::SL_CUDA;
+    } else if (sourceLanguage == "cl") {
+        SL = LanguageData::SL_OpenCL;
+    } else {
+        std::cerr << "Unsupported source language: \"" << sourceLanguage << "\"" << std::endl;
+        return 333;
+    }
+
 #if LLVM_VERSION < VERSION(3, 5)
     llvm::OwningPtr<llvm::MemoryBuffer> owningBuffer;
 #else
@@ -381,10 +397,13 @@ int main(int argc, char *argv[])
         if (i->getName() == functionname) {
             function = i;
             break;
-        } else if (functionname.empty() && i->getName() == "main") {
+        } else if (functionname.empty() && SL == LanguageData::SL_C && i->getName() == "main") {
             function = i;
             break;
         } else if (!i->isDeclaration()) {
+            if ((SL == LanguageData::SL_CUDA || SL == LanguageData::SL_OpenCL) && !LanguageData::isGPUEntryPoint(i, module, SL)) {
+                continue;
+            }
             ++numFunctions;
             functionNames.push_back(i->getName());
             if (firstFunction == NULL) {
@@ -429,7 +448,13 @@ int main(int argc, char *argv[])
 
     // transform!
     NondefFactory ndf(module);
-    transformModule(module, function, ndf);
+    transformModule(module, function, ndf, SL);
+
+    LanguageData::KernelDimensions KD;
+    if (SL == LanguageData::SL_OpenCL)
+        KD = LanguageData::extractOpenCLDimensions(module);
+    else if (SL == LanguageData::SL_CUDA)
+        KD = LanguageData::extractCUDADimensions(module);
 
     // name them!
     InstNamer namer;
