@@ -8,6 +8,8 @@
 #include "llvm2kittel/Transform/ConstantExprEliminator.h"
 #include "llvm2kittel/Util/Version.h"
 
+#include <iostream>
+
 char ConstantExprEliminator::ID = 0;
 
 ConstantExprEliminator::ConstantExprEliminator()
@@ -107,7 +109,8 @@ llvm::Instruction *ConstantExprEliminator::replaceConstantExpr(llvm::ConstantExp
             llvm::BinaryOperator *add = llvm::BinaryOperator::CreateNSWAdd(constantExpr->getOperand(0), constantExpr->getOperand(1), constantExpr->getName(), before);
             return add;
         } else {
-            return NULL;
+            std::cerr << "Unknown constant expression for " << opcodeName << std::endl;
+            exit(8787);
         }
     } else if (opcodeName == "sub") {
         if (constantExpr == llvm::ConstantExpr::getSub(constantExpr->getOperand(0), constantExpr->getOperand(1))) {
@@ -124,7 +127,8 @@ llvm::Instruction *ConstantExprEliminator::replaceConstantExpr(llvm::ConstantExp
             llvm::BinaryOperator *sub = llvm::BinaryOperator::CreateNSWSub(constantExpr->getOperand(0), constantExpr->getOperand(1), constantExpr->getName(), before);
             return sub;
         } else {
-            return NULL;
+            std::cerr << "Unknown constant expression for " << opcodeName << std::endl;
+            exit(8787);
         }
     } else if (opcodeName == "mul") {
         if (constantExpr == llvm::ConstantExpr::getMul(constantExpr->getOperand(0), constantExpr->getOperand(1))) {
@@ -141,13 +145,15 @@ llvm::Instruction *ConstantExprEliminator::replaceConstantExpr(llvm::ConstantExp
             llvm::BinaryOperator *mul = llvm::BinaryOperator::CreateNSWMul(constantExpr->getOperand(0), constantExpr->getOperand(1), constantExpr->getName(), before);
             return mul;
         } else {
-            return NULL;
+            std::cerr << "Unknown constant expression for " << opcodeName << std::endl;
+            exit(8787);
         }
     } else if (opcodeName == "trunc") {
         llvm::Instruction *instr = new llvm::TruncInst(constantExpr->getOperand(0), constantExpr->getType(), constantExpr->getName(), before);
         return instr;
     } else {
-        return NULL;
+        std::cerr << "Unknown constant expression " << opcodeName << std::endl;
+        exit(8787);
     }
 }
 
