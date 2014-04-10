@@ -39,7 +39,7 @@
 
 #define SMALL_VECTOR_SIZE 8
 
-Converter::Converter(const llvm::Type *boolType, bool assumeIsControl, bool selectIsControl, bool onlyMultiPredIsControl, bool boundedIntegers, bool unsignedEncoding, bool onlyLoopConditions, DivRemConstraintType divisionConstraintType, bool bitwiseConditions, bool complexityTuples)
+Converter::Converter(const llvm::Type *boolType, bool assumeIsControl, bool selectIsControl, bool onlyMultiPredIsControl, bool boundedIntegers, bool unsignedEncoding, bool onlyLoopConditions, DivRemConstraintType divisionConstraintType, bool bitwiseConditions, bool complexityTuples, LanguageData::SourceLanguage sourceLanguage, LanguageData::KernelDimensions kernelDimensions)
   : m_entryBlock(NULL),
     m_boolType(boolType),
     m_blockRules(),
@@ -72,7 +72,9 @@ Converter::Converter(const llvm::Type *boolType, bool assumeIsControl, bool sele
     m_divisionConstraintType(divisionConstraintType),
     m_bitwiseConditions(bitwiseConditions),
     m_complexityTuples(complexityTuples),
-    m_complexityLHSs()
+    m_complexityLHSs(),
+    m_sourceLanguage(sourceLanguage),
+    m_kernelDimensions(kernelDimensions)
 {}
 
 bool Converter::isTrivial(void)
@@ -149,6 +151,20 @@ void Converter::phase1(llvm::Function *function, std::set<llvm::Function*> &scc,
             m_vars.push_back(var);
             if (m_boundedIntegers) {
                 m_bitwidthMap.insert(std::make_pair(var, llvm::cast<llvm::IntegerType>(globalType)->getBitWidth()));
+            }
+        }
+    }
+    if (m_sourceLanguage == LanguageData::SL_OpenCL || m_sourceLanguage == LanguageData::SL_CUDA) {
+        for (unsigned i = 0; i < 3; ++i) {
+            unsigned local = m_kernelDimensions.local[i]->getZExtValue();
+            if (local != 1) {
+                std::string var = getLocalID(i);
+                m_vars.push_back(var);
+            }
+            unsigned group = m_kernelDimensions.group[i]->getZExtValue();
+            if (group != 1) {
+                std::string var = getGroupID(i);
+                m_vars.push_back(var);
             }
         }
     }
@@ -254,6 +270,18 @@ std::string Converter::getVar(llvm::Value *V)
     return res;
 }
 
+std::string Converter::getLocalID(unsigned i) {
+    std::ostringstream tmp;
+    tmp << "lid_" << i;
+    return tmp.str();
+}
+
+std::string Converter::getGroupID(unsigned i) {
+    std::ostringstream tmp;
+    tmp << "gid_" << i;
+    return tmp.str();
+}
+
 std::string Converter::getEval(unsigned int i)
 {
     std::ostringstream tmp;
@@ -320,7 +348,22 @@ std::list<ref<Polynomial> > Converter::getNewArgs(llvm::Value &V, ref<Polynomial
     return res;
 }
 
-std::list<ref<Polynomial> > Converter::getZappedArgs(std::set<llvm::GlobalVariable*> toZap)
+std::list<ref<Polynomial>> Converter::getNewArgsStartDim(std::set<std::string> toZap)
+{
+    std::list<ref<Polynomial>> res;
+    std::list<ref<Polynomial>>::iterator pp = m_lhs.begin();
+    for (std::list<std::string>::iterator i = m_vars.begin(), e = m_vars.end(); i != e; ++i, ++pp) {
+        if (toZap.find(*i) != toZap.end()) {
+            std::string nondef = "nondef.kernel." + (*i);
+            res.push_back(Polynomial::create(nondef));
+        } else {
+            res.push_back(*pp);
+        }
+    }
+    return res;
+}
+
+std::list<ref<Polynomial>> Converter::getZappedArgs(std::set<llvm::GlobalVariable*> toZap)
 {
     std::list<ref<Polynomial> > res;
     std::list<ref<Polynomial> >::iterator pp = m_lhs.begin();
@@ -645,9 +688,36 @@ void Converter::visitBB(llvm::BasicBlock *bb)
 {
     // start
     if (bb == m_entryBlock) {
+        std::set<std::string> dimZap;
+        ref<Constraint> c = Constraint::_true;
+        if (m_sourceLanguage == LanguageData::SL_OpenCL || m_sourceLanguage == LanguageData::SL_CUDA) {
+            for (unsigned i = 0; i < 3; ++i) {
+                llvm::ConstantInt *local = m_kernelDimensions.local[i];
+                if (local->getZExtValue() != 1) {
+                    ref<Polynomial> localPoly = Polynomial::create("nondef.kernel." + getLocalID(i));
+                    ref<Constraint> localGEQnull = Atom::create(localPoly, Polynomial::null, Atom::Geq);
+                    c = Operator::create(c, localGEQnull, Operator::And);
+                    ref<Polynomial> dimPoly = getPolynomial(local);
+                    ref<Constraint> localLSSdim = Atom::create(localPoly, dimPoly, Atom::Lss);
+                    c = Operator::create(c, localLSSdim, Operator::And);
+                    dimZap.insert(getLocalID(i));
+                }
+                llvm::ConstantInt *group = m_kernelDimensions.group[i];
+                if (group->getZExtValue() != 1) {
+                    ref<Polynomial> groupPoly = Polynomial::create("nondef.kernel." + getGroupID(i));
+                    ref<Constraint> groupGEQnull = Atom::create(groupPoly, Polynomial::null, Atom::Geq);
+                    c = Operator::create(c, groupGEQnull, Operator::And);
+                    ref<Polynomial> dimPoly = getPolynomial(group);
+                    ref<Constraint> groupLSSdim = Atom::create(groupPoly, dimPoly, Atom::Lss);
+                    c = Operator::create(c, groupLSSdim, Operator::And);
+                    dimZap.insert(getGroupID(i));
+                }
+            }
+        }
+        std::list<ref<Polynomial>> rhs_args = getNewArgsStartDim(dimZap);
         ref<Term> lhs = Term::create(getEval(m_function, "start"), m_lhs);
-        ref<Term> rhs = Term::create(getEval(bb, "in"), m_lhs);
-        ref<Rule> rule = Rule::create(lhs, rhs, Constraint::_true);
+        ref<Term> rhs = Term::create(getEval(bb, "in"), rhs_args);
+        ref<Rule> rule = Rule::create(lhs, rhs, c);
         m_rules.push_back(rule);
     }
 
@@ -1530,6 +1600,50 @@ void Converter::visitCallInst(llvm::CallInst &I)
                 ref<Polynomial> nondef = Polynomial::create(getNondef(&I));
                 visitGenericInstruction(I, nondef);
                 return;
+            } else if (m_sourceLanguage == LanguageData::SL_OpenCL && functionName == "get_local_id") {
+                llvm::ConstantInt *arg = llvm::dyn_cast<llvm::ConstantInt>(callSite.getArgument(0));
+                assert(arg && "Expected constant argument");
+                unsigned dim = arg->getZExtValue();
+                assert(dim < 3 && "Expected dimension smaller than 3");
+                ref<Polynomial> dimPoly;
+                if (m_kernelDimensions.local[dim]->getZExtValue() == 1)
+                    dimPoly = Polynomial::null;
+                else
+                    dimPoly = Polynomial::create(getLocalID(dim));
+                std::list<ref<Polynomial>> newArgs = getNewArgs(I, dimPoly);
+                visitGenericInstruction(I, newArgs);
+                return;
+            } else if (m_sourceLanguage == LanguageData::SL_OpenCL && functionName == "get_group_id") {
+                llvm::ConstantInt *arg = llvm::dyn_cast<llvm::ConstantInt>(callSite.getArgument(0));
+                assert(arg && "Expected constant argument");
+                unsigned dim = arg->getZExtValue();
+                assert(dim < 3 && "Expected dimension smaller than 3");
+                ref<Polynomial> dimPoly;
+                if (m_kernelDimensions.group[dim]->getZExtValue() == 1)
+                    dimPoly = Polynomial::null;
+                else
+                    dimPoly = Polynomial::create(getGroupID(dim));
+                std::list<ref<Polynomial>> newArgs = getNewArgs(I, dimPoly);
+                visitGenericInstruction(I, newArgs);
+                return;
+            } else if (m_sourceLanguage == LanguageData::SL_OpenCL && functionName == "get_local_size") {
+                llvm::ConstantInt *arg = llvm::dyn_cast<llvm::ConstantInt>(callSite.getArgument(0));
+                assert(arg && "Expected constant argument");
+                unsigned dim = arg->getZExtValue();
+                assert(dim < 3 && "Expected dimension smaller than 3");
+                ref<Polynomial> dimPoly = getPolynomial(m_kernelDimensions.local[dim]);
+                std::list<ref<Polynomial>> newArgs = getNewArgs(I, dimPoly);
+                visitGenericInstruction(I, newArgs);
+                return;
+            } else if (m_sourceLanguage == LanguageData::SL_OpenCL && functionName == "get_num_groups") {
+                llvm::ConstantInt *arg = llvm::dyn_cast<llvm::ConstantInt>(callSite.getArgument(0));
+                assert(arg && "Expected constant argument");
+                unsigned dim = arg->getZExtValue();
+                assert(dim < 3 && "Expected dimension smaller than 3");
+                ref<Polynomial> dimPoly = getPolynomial(m_kernelDimensions.group[dim]);
+                std::list<ref<Polynomial>> newArgs = getNewArgs(I, dimPoly);
+                visitGenericInstruction(I, newArgs);
+                return;
             }
         }
         if (m_complexityTuples) {
@@ -1691,6 +1805,73 @@ void Converter::visitPtrToIntInst(llvm::PtrToIntInst &I)
     }
 }
 
+bool Converter::tryCUDADimensionLoad(llvm::LoadInst &I) {
+    llvm::GetElementPtrInst *GEP
+        = llvm::dyn_cast<llvm::GetElementPtrInst>(I.getOperand(0));
+    if (!GEP)
+        return false;
+    if (GEP->getNumOperands() != 3)
+        return false;
+
+    llvm::ConstantInt *op1 = llvm::dyn_cast<llvm::ConstantInt>(GEP->getOperand(1));
+    if (!op1)
+        return false;
+    if (op1->getZExtValue() != 0)
+        return false;
+
+    llvm::ConstantInt *op2 = llvm::dyn_cast<llvm::ConstantInt>(GEP->getOperand(2));
+    if (!op2)
+        return false;
+
+    unsigned dim = op2->getZExtValue();
+    if (dim >= 3)
+        return false;
+
+    llvm::AddrSpaceCastInst *A = llvm::dyn_cast<llvm::AddrSpaceCastInst>(GEP->getOperand(0));
+    if (!A)
+        return false;
+
+    llvm::Type *T = A->getOperand(0)->getType()->getPointerElementType();
+    if (!T->isStructTy())
+        return false;
+    if (T->getStructName() != "struct._3DimensionalVector")
+        return false;
+
+    std::string structName = A->getOperand(0)->getName();
+
+    if (structName == "blockDim") {
+        ref<Polynomial> dimPoly = getPolynomial(m_kernelDimensions.local[dim]);
+        std::list<ref<Polynomial>> newArgs = getNewArgs(I, dimPoly);
+        visitGenericInstruction(I, newArgs);
+        return true;
+    } else if (structName == "gridDim") {
+        ref<Polynomial> dimPoly = getPolynomial(m_kernelDimensions.group[dim]);
+        std::list<ref<Polynomial>> newArgs = getNewArgs(I, dimPoly);
+        visitGenericInstruction(I, newArgs);
+        return true;
+    } else if (structName == "threadIdx") {
+        ref<Polynomial> dimPoly;
+        if (m_kernelDimensions.local[dim]->getZExtValue() == 1)
+            dimPoly = Polynomial::null;
+        else
+            dimPoly = Polynomial::create(getLocalID(dim));
+        std::list<ref<Polynomial>> newArgs = getNewArgs(I, dimPoly);
+        visitGenericInstruction(I, newArgs);
+        return true;
+    } else if (structName == "blockIdx") {
+        ref<Polynomial> dimPoly;
+        if (m_kernelDimensions.group[dim]->getZExtValue() == 1)
+            dimPoly = Polynomial::null;
+        else
+            dimPoly = Polynomial::create(getGroupID(dim));
+        std::list<ref<Polynomial>> newArgs = getNewArgs(I, dimPoly);
+        visitGenericInstruction(I, newArgs);
+        return true;
+    }
+
+    return false;
+}
+
 void Converter::visitLoadInst(llvm::LoadInst &I)
 {
     if (!I.getType()->isIntegerTy() || I.getType() == m_boolType) {
@@ -1699,6 +1880,8 @@ void Converter::visitLoadInst(llvm::LoadInst &I)
     if (m_phase1) {
         m_vars.push_back(getVar(&I));
     } else {
+        if (m_sourceLanguage == LanguageData::SL_CUDA && tryCUDADimensionLoad(I))
+            return;
         MayMustMap::iterator it = m_mmMap.find(&I);
         if (it == m_mmMap.end()) {
             std::cerr << "Could not find alias information (" << __FILE__ << ":" << __LINE__ << ")!" << std::endl;

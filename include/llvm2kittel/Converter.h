@@ -15,6 +15,7 @@
 #include "llvm2kittel/Analysis/ConditionPropagator.h"
 #include "llvm2kittel/Analysis/LoopConditionExplicitizer.h"
 #include "llvm2kittel/IntTRS/Constraint.h"
+#include "llvm2kittel/Language/LanguageData.h"
 #include "llvm2kittel/Util/Ref.h"
 #include "llvm2kittel/Util/Version.h"
 
@@ -50,7 +51,7 @@ class Converter : public llvm::InstVisitor<Converter>
 #include "WARN_ON.h"
 
 public:
-    Converter(const llvm::Type *boolType, bool assumeIsControl, bool selectIsControl, bool onlyMultiPredIsControl, bool boundedIntegers, bool unsignedEncoding, bool onlyLoopConditions, DivRemConstraintType divisionConstraintType, bool bitwiseConditions, bool complexityTuples);
+    Converter(const llvm::Type *boolType, bool assumeIsControl, bool selectIsControl, bool onlyMultiPredIsControl, bool boundedIntegers, bool unsignedEncoding, bool onlyLoopConditions, DivRemConstraintType divisionConstraintType, bool bitwiseConditions, bool complexityTuples, LanguageData::SourceLanguage sourceLanguage, LanguageData::KernelDimensions kernelDimensions);
 
     void phase1(llvm::Function *function, std::set<llvm::Function*> &scc, MayMustMap &mmMap, std::map<llvm::Function*, std::set<llvm::GlobalVariable*> > &funcMayZap, TrueFalseMap &tfMap, std::set<llvm::BasicBlock*> &lcbs, ConditionMap &elcMap);
     void phase2(llvm::Function *function, std::set<llvm::Function*> &scc, MayMustMap &mmMap, std::map<llvm::Function*, std::set<llvm::GlobalVariable*> > &funcMayZap, TrueFalseMap &tfMap, std::set<llvm::BasicBlock*> &lcbs, ConditionMap &elcMap);
@@ -122,6 +123,8 @@ private:
     ConditionMap m_elcMap;
 
     std::string getVar(llvm::Value *V);
+    std::string getLocalID(unsigned i);
+    std::string getGroupID(unsigned i);
     std::string getEval(unsigned int i);
     std::string getEval(llvm::BasicBlock *bb, std::string inout);
     std::string getEval(llvm::Function *f, std::string startstop);
@@ -133,6 +136,7 @@ private:
 
     ref<Polynomial> getPolynomial(llvm::Value *V);
     std::list<ref<Polynomial> > getNewArgs(llvm::Value &V, ref<Polynomial> p);
+    std::list<ref<Polynomial> > getNewArgsStartDim(std::set<std::string> toZap);
     std::list<ref<Polynomial> > getZappedArgs(std::set<llvm::GlobalVariable*> toZap);
     std::list<ref<Polynomial> > getZappedArgs(std::set<llvm::GlobalVariable*> toZap, llvm::Value &V, ref<Polynomial> p);
 
@@ -141,6 +145,8 @@ private:
 
     unsigned int m_nondef;
     std::string getNondef(llvm::Value *V);
+
+    bool tryCUDADimensionLoad(llvm::LoadInst &I);
 
     ref<Constraint> getConditionFromValue(llvm::Value *cond);
     ref<Constraint> getConditionFromInstruction(llvm::Instruction *I);
@@ -209,6 +215,9 @@ private:
 
     bool m_complexityTuples;
     std::set<std::string> m_complexityLHSs;
+
+    LanguageData::SourceLanguage m_sourceLanguage;
+    LanguageData::KernelDimensions m_kernelDimensions;
 
 private:
     Converter(const Converter &);

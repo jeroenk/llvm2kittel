@@ -602,7 +602,7 @@ int main(int argc, char *argv[])
 
         for (std::list<llvm::Function*>::iterator fi = scc.begin(), fe = scc.end(); fi != fe; ++fi) {
             llvm::Function *curr = *fi;
-            Converter converter(boolType, assumeIsControl, selectIsControl, onlyMultiPredIsControl, boundedIntegers, unsignedEncoding, onlyLoopConditions, divisionConstraintType, bitwiseConditions, complexityTuples || uniformComplexityTuples);
+            Converter converter(boolType, assumeIsControl, selectIsControl, onlyMultiPredIsControl, boundedIntegers, unsignedEncoding, onlyLoopConditions, divisionConstraintType, bitwiseConditions, complexityTuples || uniformComplexityTuples, SL, KD);
             std::map<llvm::Function*, MayMustMap>::iterator tmp1 = mmMap.find(curr);
             if (tmp1 == mmMap.end()) {
                 std::cerr << "Could not find alias information (" << __FILE__ << ":" << __LINE__ << ")!" << std::endl;
