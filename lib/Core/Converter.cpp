@@ -143,14 +143,16 @@ void Converter::phase1(llvm::Function *function, std::set<llvm::Function*> &scc,
         }
     }
     llvm::Module *module = function->getParent();
-    for (llvm::Module::global_iterator global = module->global_begin(), globale = module->global_end(); global != globale; ++global) {
-        const llvm::Type *globalType = llvm::cast<llvm::PointerType>(global->getType())->getContainedType(0);
-        if (globalType->isIntegerTy() && globalType != m_boolType) {
-            std::string var = getVar(global);
-            m_globals.push_back(global);
-            m_vars.push_back(var);
-            if (m_boundedIntegers) {
-                m_bitwidthMap.insert(std::make_pair(var, llvm::cast<llvm::IntegerType>(globalType)->getBitWidth()));
+    if (m_sourceLanguage != LanguageData::SL_OpenCL && m_sourceLanguage != LanguageData::SL_CUDA) {
+        for (llvm::Module::global_iterator global = module->global_begin(), globale = module->global_end(); global != globale; ++global) {
+            const llvm::Type *globalType = llvm::cast<llvm::PointerType>(global->getType())->getContainedType(0);
+            if (globalType->isIntegerTy() && globalType != m_boolType) {
+                std::string var = getVar(global);
+                m_globals.push_back(global);
+                m_vars.push_back(var);
+                if (m_boundedIntegers) {
+                    m_bitwidthMap.insert(std::make_pair(var, llvm::cast<llvm::IntegerType>(globalType)->getBitWidth()));
+                }
             }
         }
     }
@@ -1891,8 +1893,8 @@ void Converter::visitLoadInst(llvm::LoadInst &I)
         std::set<llvm::GlobalVariable*> mays = mmp.first;
         std::set<llvm::GlobalVariable*> musts = mmp.second;
         ref<Polynomial> newArg;
-        if (musts.size() == 1 && mays.size() == 0) {
-            // unique!
+        if (musts.size() == 1 && mays.size() == 0 && m_sourceLanguage != LanguageData::SL_CUDA && m_sourceLanguage != LanguageData::SL_OpenCL) {
+            // unique! And, we are not considering a kernel
             newArg = Polynomial::create(getVar(*musts.begin()));
         } else {
             // nondef...

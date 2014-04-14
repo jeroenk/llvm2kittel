@@ -30,7 +30,7 @@
 #include <queue>
 #include <vector>
 
-Slicer::Slicer(llvm::Function *F, std::set<std::string> phiVars)
+Slicer::Slicer(llvm::Function *F, std::set<std::string> phiVars, LanguageData::SourceLanguage sourceLanguage)
   : m_F(F),
     m_functionIdx(),
     m_idxFunction(),
@@ -45,7 +45,8 @@ Slicer::Slicer(llvm::Function *F, std::set<std::string> phiVars)
     m_depends(NULL),
     m_defined(),
     m_stillUsed(),
-    m_phiVars(phiVars)
+    m_phiVars(phiVars),
+    m_sourceLanguage(sourceLanguage)
 {}
 
 Slicer::~Slicer()
@@ -144,13 +145,15 @@ std::list<ref<Rule> > Slicer::sliceUsage(std::list<ref<Rule> > rules)
             intarg++;
         }
     }
-    // keep all globals of integer type
-    llvm::Module *module = m_F->getParent();
-    for (llvm::Module::global_iterator global = module->global_begin(), globale = module->global_end(); global != globale; ++global) {
-        const llvm::Type *globalType = llvm::cast<llvm::PointerType>(global->getType())->getContainedType(0);
-        if (llvm::isa<llvm::IntegerType>(globalType)) {
-            notNeeded.erase(intarg);
-            intarg++;
+    if (m_sourceLanguage != LanguageData::SL_OpenCL && m_sourceLanguage != LanguageData::SL_CUDA) {
+        // keep all globals of integer type
+        llvm::Module *module = m_F->getParent();
+        for (llvm::Module::global_iterator global = module->global_begin(), globale = module->global_end(); global != globale; ++global) {
+            const llvm::Type *globalType = llvm::cast<llvm::PointerType>(global->getType())->getContainedType(0);
+            if (llvm::isa<llvm::IntegerType>(globalType)) {
+                notNeeded.erase(intarg);
+                intarg++;
+            }
         }
     }
 
@@ -191,13 +194,15 @@ std::list<ref<Rule> > Slicer::sliceConstraint(std::list<ref<Rule> > rules)
             intarg++;
         }
     }
-    // keep all globals of integer type
-    llvm::Module *module = m_F->getParent();
-    for (llvm::Module::global_iterator global = module->global_begin(), globale = module->global_end(); global != globale; ++global) {
-        const llvm::Type *globalType = llvm::cast<llvm::PointerType>(global->getType())->getContainedType(0);
-        if (llvm::isa<llvm::IntegerType>(globalType)) {
-            notNeeded.erase(intarg);
-            intarg++;
+    if (m_sourceLanguage != LanguageData::SL_OpenCL && m_sourceLanguage != LanguageData::SL_CUDA) {
+        // keep all globals of integer type
+        llvm::Module *module = m_F->getParent();
+        for (llvm::Module::global_iterator global = module->global_begin(), globale = module->global_end(); global != globale; ++global) {
+            const llvm::Type *globalType = llvm::cast<llvm::PointerType>(global->getType())->getContainedType(0);
+            if (llvm::isa<llvm::IntegerType>(globalType)) {
+                notNeeded.erase(intarg);
+                intarg++;
+            }
         }
     }
     // prepare
@@ -417,11 +422,13 @@ std::list<ref<Rule> > Slicer::sliceDefined(std::list<ref<Rule> > rules)
             initial.insert(getVar(i->getName()));
         }
     }
-    llvm::Module *module = m_F->getParent();
-    for (llvm::Module::global_iterator global = module->global_begin(), globale = module->global_end(); global != globale; ++global) {
-        const llvm::Type *globalType = llvm::cast<llvm::PointerType>(global->getType())->getContainedType(0);
-        if (llvm::isa<llvm::IntegerType>(globalType)) {
-            initial.insert(getVar(global->getName()));
+    if (m_sourceLanguage != LanguageData::SL_OpenCL && m_sourceLanguage != LanguageData::SL_CUDA) {
+        llvm::Module *module = m_F->getParent();
+        for (llvm::Module::global_iterator global = module->global_begin(), globale = module->global_end(); global != globale; ++global) {
+            const llvm::Type *globalType = llvm::cast<llvm::PointerType>(global->getType())->getContainedType(0);
+            if (llvm::isa<llvm::IntegerType>(globalType)) {
+                initial.insert(getVar(global->getName()));
+            }
         }
     }
     m_defined.insert(std::make_pair(getEval("start"), initial));
@@ -630,11 +637,13 @@ std::list<ref<Rule> > Slicer::sliceStillUsed(std::list<ref<Rule> > rules, bool c
             initial.insert(getVar(i->getName()));
         }
     }
-    llvm::Module *module = m_F->getParent();
-    for (llvm::Module::global_iterator global = module->global_begin(), globale = module->global_end(); global != globale; ++global) {
-        const llvm::Type *globalType = llvm::cast<llvm::PointerType>(global->getType())->getContainedType(0);
-        if (llvm::isa<llvm::IntegerType>(globalType)) {
-            initial.insert(getVar(global->getName()));
+    if (m_sourceLanguage != LanguageData::SL_OpenCL && m_sourceLanguage != LanguageData::SL_CUDA) {
+        llvm::Module *module = m_F->getParent();
+        for (llvm::Module::global_iterator global = module->global_begin(), globale = module->global_end(); global != globale; ++global) {
+            const llvm::Type *globalType = llvm::cast<llvm::PointerType>(global->getType())->getContainedType(0);
+            if (llvm::isa<llvm::IntegerType>(globalType)) {
+                initial.insert(getVar(global->getName()));
+            }
         }
     }
     m_stillUsed.insert(std::make_pair(getEval("start"), initial));

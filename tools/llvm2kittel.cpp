@@ -629,7 +629,7 @@ int main(int argc, char *argv[])
             std::list<ref<Rule> > rules = converter.getRules();
             std::list<ref<Rule> > condensedRules = converter.getCondensedRules();
             std::list<ref<Rule> > kittelizedRules = kittelize(condensedRules);
-            Slicer slicer(curr, converter.getPhiVariables());
+            Slicer slicer(curr, converter.getPhiVariables(), SL);
             std::list<ref<Rule> > slicedRules;
             if (noSlicing) {
                 slicedRules = kittelizedRules;

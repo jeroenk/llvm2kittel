@@ -8,6 +8,7 @@
 #ifndef SLICER_H
 #define SLICER_H
 
+#include "llvm2kittel/Language/LanguageData.h"
 #include "llvm2kittel/Util/Ref.h"
 #include "llvm2kittel/Util/Version.h"
 
@@ -31,7 +32,7 @@ class Slicer
 {
 
 public:
-    Slicer(llvm::Function *F, std::set<std::string> phiVars);
+    Slicer(llvm::Function *F, std::set<std::string> phiVars, LanguageData::SourceLanguage sourceLanuage);
     ~Slicer();
 
     std::list<ref<Rule> > sliceUsage(std::list<ref<Rule> > rules);
@@ -91,6 +92,7 @@ private:
     bool isNondef(std::string v);
 
     std::set<std::string> m_phiVars;
+    LanguageData::SourceLanguage m_sourceLanguage;
 
 private:
     Slicer(const Slicer &);
