@@ -24,6 +24,7 @@
 #include "llvm2kittel/Language/LanguageData.h"
 #include "llvm2kittel/Transform/BasicBlockSorter.h"
 #include "llvm2kittel/Transform/BitcastCallEliminator.h"
+#include "llvm2kittel/Transform/CarefulHoister.h"
 #include "llvm2kittel/Transform/ConstantExprEliminator.h"
 #include "llvm2kittel/Transform/EagerInliner.h"
 #include "llvm2kittel/Transform/ExtremeInliner.h"
@@ -169,6 +170,8 @@ void transformModule(llvm::Module *module, llvm::Function *function, NondefFacto
     // Hoist
     if (SL != LanguageData::SL_CUDA && SL != LanguageData::SL_OpenCL) {
         llvmPasses.add(createHoisterPass());
+    } else {
+        llvmPasses.add(createCarefulHoisterPass());
     }
 
     // DCE

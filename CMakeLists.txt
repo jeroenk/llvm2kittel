@@ -140,6 +140,7 @@ add_library(llvm2kittelLanguage STATIC
 add_library(llvm2kittelTransform STATIC
   lib/Transform/BasicBlockSorter.cpp
   lib/Transform/BitcastCallEliminator.cpp
+  lib/Transform/CarefulHoister.cpp
   lib/Transform/ConstantExprEliminator.cpp
   lib/Transform/EagerInliner.cpp
   lib/Transform/ExtremeInliner.cpp
@@ -149,6 +150,7 @@ add_library(llvm2kittelTransform STATIC
   lib/Transform/StrengthIncreaser.cpp
   include/llvm2kittel/Transform/BasicBlockSorter.h
   include/llvm2kittel/Transform/BitcastCallEliminator.h
+  include/llvm2kittel/Transform/CarefulHoister.h
   include/llvm2kittel/Transform/ConstantExprEliminator.h
   include/llvm2kittel/Transform/EagerInliner.h
   include/llvm2kittel/Transform/ExtremeInliner.h
