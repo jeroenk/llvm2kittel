@@ -4,9 +4,16 @@ llvm2KITTeL is a converter from LLVM's intermediate representation
 into a format that can be handled by the automatic termination prover
 [KITTeL](https://github.com/s-falke/kittel-koat).
 
+This is an adapted version of llvm2KITTeL which handles OpenCL and CUDA
+kernels. The bitcode for these kernels should be produced by
+[GPUVerify](http://multicore.doc.ic.ac.uk/tools/GPUVerify/) with
+GPUVerify's `--stop-at-opt` option.
+
 ## Author
 
 Stephan Falke
+
+The OpenCL and CUDA related changes are by Jeroen Ketema.
 
 ## Papers
 
