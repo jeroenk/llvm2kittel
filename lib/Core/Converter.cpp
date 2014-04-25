@@ -1519,7 +1519,7 @@ void Converter::visitCallInst(llvm::CallInst &I)
         llvm::Function *calledFunction = callSite.getCalledFunction();
         if (calledFunction != NULL) {
             llvm::StringRef functionName = calledFunction->getName();
-            if (functionName == "__kittel_assume") {
+            if (functionName == "__kittel_assume" || functionName == "bugle_assume" || functionName == "__requires" || functionName == "__global_requires") {
                 if (m_assumeIsControl) {
                     m_controlPoints.insert(getEval(m_counter));
                 }
@@ -1916,7 +1916,7 @@ bool Converter::isAssumeArg(llvm::ZExtInst &I)
             return false;
         }
         llvm::StringRef functionName = calledFunction->getName();
-        if (functionName != "__kittel_assume") {
+        if (functionName != "__kittel_assume" && functionName != "bugle_assume" && functionName != "__requires" && functionName != "__global_requires") {
             return false;
         }
         return true;

@@ -148,7 +148,7 @@ void InstChecker::visitCallInst(llvm::CallInst &I)
         return;
     }
     std::string functionName = calledFunction->getName().str();
-    if (functionName == "__kittel_assume") {
+    if (functionName == "__kittel_assume" || functionName == "bugle_assume" || functionName == "__requires" || functionName == "__global_requires") {
         if (llvm::isa<llvm::ZExtInst>(callSite.getArgument(0))) {
             llvm::ZExtInst *zext = llvm::cast<llvm::ZExtInst>(callSite.getArgument(0));
             if (zext->getOperand(0)->getType() != m_boolType) {

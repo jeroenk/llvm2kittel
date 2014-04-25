@@ -152,7 +152,7 @@ bool ConditionPropagator::runOnFunction(llvm::Function &F)
                         llvm::Function *calledFunction = ci->getCalledFunction();
                         if (calledFunction != NULL) {
                             std::string functionName = calledFunction->getName().str();
-                            if (functionName == "__kittel_assume") {
+                            if (functionName == "__kittel_assume" || functionName == "bugle_assume" || functionName == "__requires" || functionName == "__global_requires") {
                                 llvm::CallSite callSite(ci);
                                 trueSet.insert(callSite.getArgument(0));
                             }
