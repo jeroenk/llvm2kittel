@@ -114,7 +114,7 @@ bool CarefulHoister::doesNotAccessMemory(llvm::Function *F)
                 return false;
             }
             if (llvm::isa<llvm::CallInst>(inst)) {
-                if (auto I = llvm::dyn_cast<llvm::IntrinsicInst>(inst)) {
+                if (llvm::IntrinsicInst *I = llvm::dyn_cast<llvm::IntrinsicInst>(inst)) {
                     if (I->getIntrinsicID() == llvm::Intrinsic::dbg_value)
                         continue;
                 }

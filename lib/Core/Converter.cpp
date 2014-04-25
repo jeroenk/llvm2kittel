@@ -350,10 +350,10 @@ std::list<ref<Polynomial> > Converter::getNewArgs(llvm::Value &V, ref<Polynomial
     return res;
 }
 
-std::list<ref<Polynomial>> Converter::getNewArgsStartDim(std::set<std::string> toZap)
+std::list<ref<Polynomial> > Converter::getNewArgsStartDim(std::set<std::string> toZap)
 {
-    std::list<ref<Polynomial>> res;
-    std::list<ref<Polynomial>>::iterator pp = m_lhs.begin();
+    std::list<ref<Polynomial> > res;
+    std::list<ref<Polynomial> >::iterator pp = m_lhs.begin();
     for (std::list<std::string>::iterator i = m_vars.begin(), e = m_vars.end(); i != e; ++i, ++pp) {
         if (toZap.find(*i) != toZap.end()) {
             std::string nondef = "nondef.kernel." + (*i);
@@ -365,7 +365,7 @@ std::list<ref<Polynomial>> Converter::getNewArgsStartDim(std::set<std::string> t
     return res;
 }
 
-std::list<ref<Polynomial>> Converter::getZappedArgs(std::set<llvm::GlobalVariable*> toZap)
+std::list<ref<Polynomial> > Converter::getZappedArgs(std::set<llvm::GlobalVariable*> toZap)
 {
     std::list<ref<Polynomial> > res;
     std::list<ref<Polynomial> >::iterator pp = m_lhs.begin();
@@ -716,7 +716,7 @@ void Converter::visitBB(llvm::BasicBlock *bb)
                 }
             }
         }
-        std::list<ref<Polynomial>> rhs_args = getNewArgsStartDim(dimZap);
+        std::list<ref<Polynomial> > rhs_args = getNewArgsStartDim(dimZap);
         ref<Term> lhs = Term::create(getEval(m_function, "start"), m_lhs);
         ref<Term> rhs = Term::create(getEval(bb, "in"), rhs_args);
         ref<Rule> rule = Rule::create(lhs, rhs, c);
@@ -1612,7 +1612,7 @@ void Converter::visitCallInst(llvm::CallInst &I)
                     dimPoly = Polynomial::null;
                 else
                     dimPoly = Polynomial::create(getLocalID(dim));
-                std::list<ref<Polynomial>> newArgs = getNewArgs(I, dimPoly);
+                std::list<ref<Polynomial> > newArgs = getNewArgs(I, dimPoly);
                 visitGenericInstruction(I, newArgs);
                 return;
             } else if (m_sourceLanguage == LanguageData::SL_OpenCL && functionName == "get_group_id") {
@@ -1625,7 +1625,7 @@ void Converter::visitCallInst(llvm::CallInst &I)
                     dimPoly = Polynomial::null;
                 else
                     dimPoly = Polynomial::create(getGroupID(dim));
-                std::list<ref<Polynomial>> newArgs = getNewArgs(I, dimPoly);
+                std::list<ref<Polynomial> > newArgs = getNewArgs(I, dimPoly);
                 visitGenericInstruction(I, newArgs);
                 return;
             } else if (m_sourceLanguage == LanguageData::SL_OpenCL && functionName == "get_local_size") {
@@ -1634,7 +1634,7 @@ void Converter::visitCallInst(llvm::CallInst &I)
                 unsigned dim = arg->getZExtValue();
                 assert(dim < 3 && "Expected dimension smaller than 3");
                 ref<Polynomial> dimPoly = getPolynomial(m_kernelDimensions.local[dim]);
-                std::list<ref<Polynomial>> newArgs = getNewArgs(I, dimPoly);
+                std::list<ref<Polynomial> > newArgs = getNewArgs(I, dimPoly);
                 visitGenericInstruction(I, newArgs);
                 return;
             } else if (m_sourceLanguage == LanguageData::SL_OpenCL && functionName == "get_num_groups") {
@@ -1643,7 +1643,7 @@ void Converter::visitCallInst(llvm::CallInst &I)
                 unsigned dim = arg->getZExtValue();
                 assert(dim < 3 && "Expected dimension smaller than 3");
                 ref<Polynomial> dimPoly = getPolynomial(m_kernelDimensions.group[dim]);
-                std::list<ref<Polynomial>> newArgs = getNewArgs(I, dimPoly);
+                std::list<ref<Polynomial> > newArgs = getNewArgs(I, dimPoly);
                 visitGenericInstruction(I, newArgs);
                 return;
             }
@@ -1843,12 +1843,12 @@ bool Converter::tryCUDADimensionLoad(llvm::LoadInst &I) {
 
     if (structName == "blockDim") {
         ref<Polynomial> dimPoly = getPolynomial(m_kernelDimensions.local[dim]);
-        std::list<ref<Polynomial>> newArgs = getNewArgs(I, dimPoly);
+        std::list<ref<Polynomial> > newArgs = getNewArgs(I, dimPoly);
         visitGenericInstruction(I, newArgs);
         return true;
     } else if (structName == "gridDim") {
         ref<Polynomial> dimPoly = getPolynomial(m_kernelDimensions.group[dim]);
-        std::list<ref<Polynomial>> newArgs = getNewArgs(I, dimPoly);
+        std::list<ref<Polynomial> > newArgs = getNewArgs(I, dimPoly);
         visitGenericInstruction(I, newArgs);
         return true;
     } else if (structName == "threadIdx") {
@@ -1857,7 +1857,7 @@ bool Converter::tryCUDADimensionLoad(llvm::LoadInst &I) {
             dimPoly = Polynomial::null;
         else
             dimPoly = Polynomial::create(getLocalID(dim));
-        std::list<ref<Polynomial>> newArgs = getNewArgs(I, dimPoly);
+        std::list<ref<Polynomial> > newArgs = getNewArgs(I, dimPoly);
         visitGenericInstruction(I, newArgs);
         return true;
     } else if (structName == "blockIdx") {
@@ -1866,7 +1866,7 @@ bool Converter::tryCUDADimensionLoad(llvm::LoadInst &I) {
             dimPoly = Polynomial::null;
         else
             dimPoly = Polynomial::create(getGroupID(dim));
-        std::list<ref<Polynomial>> newArgs = getNewArgs(I, dimPoly);
+        std::list<ref<Polynomial> > newArgs = getNewArgs(I, dimPoly);
         visitGenericInstruction(I, newArgs);
         return true;
     }
