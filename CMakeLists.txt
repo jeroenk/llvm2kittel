@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 2.8)
 
 set(CMAKE_MODULE_PATH
   ${CMAKE_MODULE_PATH}
-  "${CMAKE_CURRENT_SOURCE_DIR}/cmake"
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules"
 )
 
 set(WARN_FLAGS
@@ -25,6 +25,8 @@ execute_process(
   OUTPUT_VARIABLE LLVM_VERSION
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
+
+message(STATUS "Using LLVM ${LLVM_VERSION}")
 
 string(REGEX MATCHALL "[0-9]+" LLVM_VERSION_LIST "${LLVM_VERSION}")
 
@@ -69,7 +71,7 @@ execute_process(
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
-include(FindGMP)
+find_package(GMP REQUIRED)
 
 execute_process(
   COMMAND ${LLVM_CONFIG_EXECUTABLE} --bindir
@@ -82,6 +84,7 @@ configure_file(${CMAKE_SOURCE_DIR}/kittel-llvm.in ${CMAKE_BINARY_DIR}/kittel-llv
 configure_file(${CMAKE_SOURCE_DIR}/kittel-llvm-bounded.in ${CMAKE_BINARY_DIR}/kittel-llvm-bounded @ONLY)
 
 include_directories(include)
+include_directories(${GMP_INCLUDE_DIR})
 
 add_library(llvm2kittelAnalysis STATIC
   lib/Analysis/ConditionPropagator.cpp
@@ -173,8 +176,22 @@ add_library(llvm2kittelUtil STATIC
   include/WARN_ON.h
 )
 
+add_custom_target(
+  make_git_sha1
+  COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/make_git_sha1.sh GitSHA1.cpp
+  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+)
+set_source_files_properties(
+  ${CMAKE_BINARY_DIR}/GitSHA1.cpp
+  PROPERTIES GENERATED TRUE
+)
 add_executable(llvm2kittel
   tools/llvm2kittel.cpp
+  ${CMAKE_BINARY_DIR}/GitSHA1.cpp
+  tools/GitSHA1.h
+)
+add_dependencies(
+  llvm2kittel make_git_sha1
 )
 
 set_target_properties(
@@ -190,12 +207,10 @@ target_link_libraries(llvm2kittelComplexity
   ${LLVM_LIBS} ${LLVM_LDFLAGS}
 )
 target_link_libraries(llvm2kittelCore
-  ${LLVM_LIBS} ${LLVM_LDFLAGS}
-  ${GMP_LIBS} ${GMP_LDFLAGS}
+  ${LLVM_LIBS} ${LLVM_LDFLAGS} ${GMP_LIBRARIES}
 )
 target_link_libraries(llvm2kittelIntTRS
-  ${LLVM_LIBS} ${LLVM_LDFLAGS}
-  ${GMP_LIBS} ${GMP_LDFLAGS}
+  ${LLVM_LIBS} ${LLVM_LDFLAGS} ${GMP_LIBRARIES}
 )
 target_link_libraries(llvm2kittelLanguage
   ${LLVM_LIBS} ${LLVM_LDFLAGS}

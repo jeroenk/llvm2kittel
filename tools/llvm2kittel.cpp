@@ -64,6 +64,9 @@
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/system_error.h>
+#if LLVM_VERSION >= VERSION(3, 5)
+  #include <llvm/Support/FileSystem.h>
+#endif
 #include "WARN_ON.h"
 
 // C++ includes
@@ -74,12 +77,14 @@
 
 // command line stuff
 
+#include "GitSHA1.h"
+
 void versionPrinter()
 {
     std::cout << "llvm2KITTeL" << std::endl;
-    std::cout << "Copyright 2010-2014 by Stephan Falke." << std::endl;
-    std::cout << "Version " << "HEAD";
-    std::cout << ", built on " << __DATE__ << " (" << __TIME__ << "), using LLVM " << LLVM_MAJOR << "." << LLVM_MINOR << "." << std::endl;
+    std::cout << "Copyright 2010-2014 Stephan Falke" << std::endl;
+    std::cout << "Version " << get_git_sha1();
+    std::cout << ", using LLVM " << LLVM_MAJOR << "." << LLVM_MINOR << std::endl;
 }
 
 static cl::opt<std::string> filename(cl::Positional, cl::Required, cl::desc("<input bitcode>"), cl::init(std::string()));
@@ -95,7 +100,7 @@ static cl::opt<bool> inlineVoids("inline-voids", cl::desc("Function with return 
 static cl::opt<bool> increaseStrength("increase-strength", cl::desc("Replace shifts by multiplication/division"), cl::init(false));
 static cl::opt<bool> noSlicing("no-slicing", cl::desc("Do not slice the generated TRS"), cl::init(false));
 static cl::opt<bool> conservativeSlicing("conservative-slicing", cl::desc("Be conservative in slicing the generated TRS"), cl::init(false));
-static cl::opt<bool> onlyMultiPredIsControl("multi-pred-control", cl::desc("Only basic block with multiple predecessors are control points"), cl::init(false));
+static cl::opt<bool> onlyMultiPredIsControl("multi-pred-control", cl::desc("Only basic blocks with multiple predecessors are control points"), cl::init(false));
 static cl::opt<bool> boundedIntegers("bounded-integers", cl::desc("Use bounded integers instead of mathematical integers"), cl::init(false));
 static cl::opt<bool> unsignedEncoding("unsigned-encoding", cl::desc("Use unsigned box for bounded integers"), cl::init(false));
 static cl::opt<bool> propagateConditions("propagate-conditions", cl::desc("Propagate branch conditions to successor basic blocks"), cl::init(false));
