@@ -368,11 +368,15 @@ int main(int argc, char *argv[])
 
 #if LLVM_VERSION < VERSION(3, 5)
     llvm::OwningPtr<llvm::MemoryBuffer> owningBuffer;
-#else
-    std::unique_ptr<llvm::MemoryBuffer> owningBuffer;
-#endif
     llvm::MemoryBuffer::getFileOrSTDIN(filename, owningBuffer);
     llvm::MemoryBuffer *buffer = owningBuffer.get();
+#else
+    llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> owningBuffer = llvm::MemoryBuffer::getFileOrSTDIN(filename);
+    llvm::MemoryBuffer *buffer = NULL;
+    if (!owningBuffer.getError()) {
+        buffer = owningBuffer->get();
+    }
+#endif
 
     if (buffer == NULL) {
         std::cerr << "LLVM bitcode file \"" << filename << "\" does not exist or cannot be read." << std::endl;
