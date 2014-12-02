@@ -22,8 +22,13 @@ bool LanguageData::isGPUEntryPoint(llvm::Function *F, llvm::Module *M, SourceLan
                 llvm::MDNode *MD = NMD->getOperand(i);
                 if (MD->getOperand(0) == F)
                     for (unsigned fi = 1, fe = MD->getNumOperands(); fi != fe; fi += 2)
+#if LLVM_VERSION < VERSION(3, 6)
                         if (MD->getOperand(fi)->getName() == "kernel")
                             return true;
+#else
+                        if (llvm::cast<llvm::MDString>(MD->getOperand(fi))->getString() == "kernel")
+                            return true;
+#endif
             }
         }
     }
