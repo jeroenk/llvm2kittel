@@ -20,7 +20,11 @@ bool LanguageData::isGPUEntryPoint(llvm::Function *F, llvm::Module *M, SourceLan
         if (llvm::NamedMDNode *NMD = M->getNamedMetadata("nvvm.annotations")) {
             for (unsigned i = 0, e = NMD->getNumOperands(); i != e; ++i) {
                 llvm::MDNode *MD = NMD->getOperand(i);
+#if LLVM_VERSION < VERSION(3, 6)
                 if (MD->getOperand(0) == F)
+#else
+                    if (MD->getOperand(0) == llvm::ValueAsMetadata::get(F))
+#endif
                     for (unsigned fi = 1, fe = MD->getNumOperands(); fi != fe; fi += 2)
 #if LLVM_VERSION < VERSION(3, 6)
                         if (MD->getOperand(fi)->getName() == "kernel")
@@ -37,7 +41,11 @@ bool LanguageData::isGPUEntryPoint(llvm::Function *F, llvm::Module *M, SourceLan
         if (llvm::NamedMDNode *NMD = M->getNamedMetadata("opencl.kernels")) {
             for (unsigned i = 0, e =  NMD->getNumOperands(); i != e; ++i) {
                 llvm::MDNode *MD = NMD->getOperand(i);
+#if LLVM_VERSION < VERSION(3, 6)
                 if (MD->getOperand(0) == F)
+#else
+                if (MD->getOperand(0) == llvm::ValueAsMetadata::get(F))
+#endif
                     return true;
             }
         }
