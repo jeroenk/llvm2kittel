@@ -37,6 +37,7 @@ public:
     typedef struct {
         llvm::ConstantInt* local[3];
         llvm::ConstantInt* group[3];
+        unsigned bitwidth;
     } KernelDimensions;
 
 private:

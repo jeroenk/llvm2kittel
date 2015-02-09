@@ -87,16 +87,18 @@ void LanguageData::extractOpenCLAxiom(llvm::Function *F, KernelDimensions &KD) {
     if (!llvm::dyn_cast<llvm::ReturnInst>(I))
         return;
 
-    if (fnName == "get_local_size")
+    if (fnName == "get_local_size") {
         KD.local[dim] = dimVal;
-    else if (fnName == "get_num_groups")
+        KD.bitwidth = llvm::cast<llvm::IntegerType>(IC->getOperand(1)->getType())->getBitWidth();
+    } else if (fnName == "get_num_groups") {
         KD.group[dim] = dimVal;
-    else
+        KD.bitwidth = llvm::cast<llvm::IntegerType>(IC->getOperand(1)->getType())->getBitWidth();
+    } else
         return;
 }
 
 LanguageData::KernelDimensions LanguageData::extractOpenCLDimensions(llvm::Module *M) {
-    KernelDimensions KD = {{0, 0, 0}, {0, 0, 0}};
+    KernelDimensions KD = {{0, 0, 0}, {0, 0, 0}, 0};
 
     for (llvm::Module::iterator i = M->begin(), e = M->end(); i != e; ++i) {
         if (!i->getName().startswith("__axiom"))
@@ -171,16 +173,18 @@ void LanguageData::extractCUDAAxiom(llvm::Function *F, KernelDimensions &KD) {
     if (!llvm::dyn_cast<llvm::ReturnInst>(I))
         return;
 
-    if (structName == "blockDim")
+    if (structName == "blockDim") {
         KD.local[dim] = dimVal;
-    else if (structName == "gridDim")
+        KD.bitwidth = llvm::cast<llvm::IntegerType>(IC->getOperand(1)->getType())->getBitWidth();
+    } else if (structName == "gridDim") {
         KD.group[dim] = dimVal;
-    else
+        KD.bitwidth = llvm::cast<llvm::IntegerType>(IC->getOperand(1)->getType())->getBitWidth();
+    } else
         return;
 }
 
 LanguageData::KernelDimensions LanguageData::extractCUDADimensions(llvm::Module *M) {
-    KernelDimensions KD = {{0, 0, 0}, {0, 0, 0}};
+    KernelDimensions KD = {{0, 0, 0}, {0, 0, 0}, 0};
 
     for (llvm::Module::iterator i = M->begin(), e = M->end(); i != e; ++i) {
         if (!i->getName().startswith("__axiom"))

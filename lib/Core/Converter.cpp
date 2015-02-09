@@ -162,11 +162,19 @@ void Converter::phase1(llvm::Function *function, std::set<llvm::Function*> &scc,
             if (local != 1) {
                 std::string var = getLocalID(i);
                 m_vars.push_back(var);
+                if (m_boundedIntegers) {
+                    m_bitwidthMap.insert(std::make_pair("nondef.kernel." + var, m_kernelDimensions.bitwidth));
+                    m_bitwidthMap.insert(std::make_pair(var, m_kernelDimensions.bitwidth));
+                }
             }
             unsigned group = m_kernelDimensions.group[i]->getZExtValue();
             if (group != 1) {
                 std::string var = getGroupID(i);
                 m_vars.push_back(var);
+                if (m_boundedIntegers) {
+                    m_bitwidthMap.insert(std::make_pair("nondef.kernel." + var, m_kernelDimensions.bitwidth));
+                    m_bitwidthMap.insert(std::make_pair(var, m_kernelDimensions.bitwidth));
+                }
             }
         }
     }
