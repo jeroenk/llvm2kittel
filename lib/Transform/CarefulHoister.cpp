@@ -41,7 +41,11 @@ void CarefulHoister::getAnalysisUsage(llvm::AnalysisUsage &AU) const
 #else
     AU.addRequired<llvm::DominatorTreeWrapperPass>();
 #endif
+#if LLVM_VERSION < VERSION(3, 7)
     AU.addRequired<llvm::LoopInfo>();
+#else
+    AU.addRequired<llvm::LoopInfoWrapperPass>();
+#endif
 }
 
 /// Hoist expressions out of the specified loop.
@@ -216,6 +220,10 @@ llvm::LoopPass *createCarefulHoisterPass()
 #else
     llvm::initializeDominatorTreeWrapperPassPass(*llvm::PassRegistry::getPassRegistry());
 #endif
+#if LLVM_VERSION < VERSION(3, 7)
     llvm::initializeLoopInfoPass(*llvm::PassRegistry::getPassRegistry());
+#else
+    llvm::initializeLoopInfoWrapperPassPass(*llvm::PassRegistry::getPassRegistry());
+#endif
     return new CarefulHoister();
 }
