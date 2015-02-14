@@ -56,7 +56,11 @@
 #else
   #include <llvm/IR/DataLayout.h>
 #endif
-#include <llvm/PassManager.h>
+#if LLVM_VERSION < VERSION(3, 7)
+  #include <llvm/PassManager.h>
+#else
+  #include <llvm/IR/LegacyPassManager.h>
+#endif
 #include <llvm/Analysis/Passes.h>
 #if LLVM_VERSION < VERSION(3, 5)
   #include <llvm/Analysis/Verifier.h>
@@ -127,7 +131,7 @@ static cl::opt<SMTSolver> smtSolver("smt-solver",
                                     cl::init(NoSolver),
                                     cl::values(
                                                clEnumValN(CVC4Solver, "cvc4", "use CVC4"),
-                                               clEnumValN(MathSat5Solver, "mathsat5", "use MathSat5"),
+                                               clEnumValN(MathSAT5Solver, "mathsat5", "use MathSAT5"),
                                                clEnumValN(Yices2Solver, "yices2", "use Yices2"),
                                                clEnumValN(Z3Solver, "z3", "use Z3"),
                                                clEnumValN(NoSolver, "none", "do not eliminate unsatisfiable contraints"),
@@ -172,7 +176,11 @@ void transformModule(llvm::Module *module, llvm::Function *function, NondefFacto
 #endif
 
     // pass manager
+#if LLVM_VERSION < VERSION(3, 7)
     llvm::PassManager llvmPasses;
+#else
+    llvm::legacy::PassManager llvmPasses;
+#endif
 
     if (TD != NULL) {
         llvmPasses.add(TD);
@@ -269,7 +277,11 @@ std::pair<MayMustMap, std::set<llvm::GlobalVariable*> > getMayMustMap(llvm::Func
 #endif
 
     // pass manager
+#if LLVM_VERSION < VERSION(3, 7)
     llvm::FunctionPassManager PM(module);
+#else
+    llvm::legacy::FunctionPassManager PM(module);
+#endif
 
     if (TD != NULL) {
         PM.add(TD);
@@ -290,7 +302,11 @@ TrueFalseMap getConditionPropagationMap(llvm::Function *function, std::set<llvm:
     llvm::Module *module = function->getParent();
 
     // pass manager
+#if LLVM_VERSION < VERSION(3, 7)
     llvm::FunctionPassManager PM(module);
+#else
+    llvm::legacy::FunctionPassManager PM(module);
+#endif
 
     ConditionPropagator *cpPass = createConditionPropagatorPass(debug, onlyLoopConditions, lcbs);
     PM.add(cpPass);
@@ -305,7 +321,11 @@ ConditionMap getExplicitizedLoopConditionMap(llvm::Function *function)
     llvm::Module *module = function->getParent();
 
     // pass manager
+#if LLVM_VERSION < VERSION(3, 7)
     llvm::FunctionPassManager PM(module);
+#else
+    llvm::legacy::FunctionPassManager PM(module);
+#endif
 
     LoopConditionExplicitizer *lcePass = createLoopConditionExplicitizerPass(debug);
     PM.add(lcePass);
@@ -320,7 +340,11 @@ std::set<llvm::BasicBlock*> getLoopConditionBlocks(llvm::Function *function)
     llvm::Module *module = function->getParent();
 
     // pass manager
+#if LLVM_VERSION < VERSION(3, 7)
     llvm::FunctionPassManager PM(module);
+#else
+    llvm::legacy::FunctionPassManager PM(module);
+#endif
 
     LoopConditionBlocksCollector *lcbPass = createLoopConditionBlocksCollectorPass();
     PM.add(lcbPass);
