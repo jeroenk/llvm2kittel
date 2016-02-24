@@ -198,7 +198,7 @@ void CarefulHoister::hoist(llvm::BasicBlock *preheader, llvm::Instruction &I)
     I.removeFromParent();
 
     // Insert the new node in Preheader, before the terminator.
-    preheader->getInstList().insert(preheader->getTerminator(), &I);
+    I.insertBefore(preheader->getTerminator());
 
     changed = true;
 }

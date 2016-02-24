@@ -500,7 +500,7 @@ int main(int argc, char *argv[])
             function = &*i;
             break;
         } else if (!i->isDeclaration()) {
-            if ((SL == LanguageData::SL_CUDA || SL == LanguageData::SL_OpenCL) && !LanguageData::isGPUEntryPoint(i, module, SL)) {
+            if ((SL == LanguageData::SL_CUDA || SL == LanguageData::SL_OpenCL) && !LanguageData::isGPUEntryPoint(&*i, module, SL)) {
                 continue;
             }
             ++numFunctions;
