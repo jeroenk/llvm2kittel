@@ -139,7 +139,7 @@ std::list<ref<Rule> > Slicer::sliceUsage(std::list<ref<Rule> > rules)
     // Keep all inputs of integer type
     unsigned int intarg = 0;
     for (llvm::Function::arg_iterator i = m_F->arg_begin(), e = m_F->arg_end(); i != e; ++i) {
-        llvm::Argument *arg = i;
+        llvm::Argument *arg = &*i;
         if (llvm::isa<llvm::IntegerType>(arg->getType())) {
             notNeeded.erase(intarg);
             intarg++;
@@ -188,7 +188,7 @@ std::list<ref<Rule> > Slicer::sliceConstraint(std::list<ref<Rule> > rules)
     // Keep all inputs of integer type
     unsigned int intarg = 0;
     for (llvm::Function::arg_iterator i = m_F->arg_begin(), e = m_F->arg_end(); i != e; ++i) {
-        llvm::Argument *arg = i;
+        llvm::Argument *arg = &*i;
         if (llvm::isa<llvm::IntegerType>(arg->getType())) {
             notNeeded.erase(intarg);
             intarg++;
@@ -926,6 +926,72 @@ bool Slicer::isRecursiveCall(std::string f)
 bool Slicer::isNondef(std::string v)
 {
     return (v.substr(0, 7) == "nondef.");
+}
+
+std::list<ref<Rule> > Slicer::sliceTrivialNondefConstraints(std::list<ref<Rule> > rules)
+{
+    // Remove constraints of the form 'Polynomial Operator nondef' if nondef is not
+    // used anywhere else, i.e. on a rhs or in another constraint. A constraint of
+    // this form can always be satisfied and, hence, and safely be removed.
+
+    std::list<ref<Rule> > res;
+
+    for (std::list<ref<Rule> >::iterator i = rules.begin(), e = rules.end(); i != e; ++i) {
+        ref<Rule> rule = *i;
+        std::list<ref<Polynomial> > rhsArgs = rule->getRight()->getArgs();
+        std::set<std::string> rhsVars;
+        rule->getRight()->addVariablesToSet(rhsVars);
+
+        // Map from a nondef variable name to its atomic. If the nondef variable name is
+        // used more than once in a constraint, or used on the right-hand side of a rewrite
+        // rule we map the variable name to NULL.
+        std::map<std::string, ref<Constraint> > nondefToAtomic;
+
+        for (std::set<std::string>::iterator vi = rhsVars.begin(), ve = rhsVars.end(); vi != ve; ++vi) {
+            if (isNondef(*vi)) {
+                nondefToAtomic[*vi] = NULL;
+            }
+        }
+
+        std::list<ref<Constraint> > atomics;
+        rule->getConstraint()->addAtomicsToList(atomics);
+        for (std::list<ref<Constraint> >::iterator ai = atomics.begin(), ae = atomics.end(); ai != ae; ++ai) {
+            std::set<std::string> tmp;
+            (*ai)->addVariablesToSet(tmp);
+            for (std::set<std::string>::iterator vi = tmp.begin(), ve = tmp.end(); vi != ve; ++vi) {
+                if (isNondef(*vi)) {
+                    if (nondefToAtomic.find(*vi) != nondefToAtomic.end()) {
+                        nondefToAtomic[*vi] = NULL;
+                    } else {
+                        nondefToAtomic[*vi] = *ai;
+                    }
+                }
+            }
+        }
+
+        ref<Constraint> newConstraint = rule->getConstraint();
+        for (std::map<std::string, ref<Constraint> >::iterator ai = nondefToAtomic.begin(), ae = nondefToAtomic.end(); ai != ae; ++ai) {
+            if (ai->second.isNull()) {
+                continue;
+            }
+            ref<Atom> atomic = static_cast<Atom*>(ai->second.get());
+            std::set<std::string> tmpLeft;
+            std::set<std::string> tmpRight;
+            atomic->getLeft()->addVariablesToSet(tmpLeft);
+            atomic->getRight()->addVariablesToSet(tmpRight);
+
+            if (atomic->getLeft()->isVar() && tmpLeft.find(ai->first) != tmpLeft.end()) {
+              newConstraint = newConstraint->setAtomToTrue(atomic);
+            } else if (atomic->getRight()->isVar() && tmpRight.find(ai->first) != tmpRight.end()) {
+              newConstraint = newConstraint->setAtomToTrue(atomic);
+            }
+        }
+
+        ref<Rule> newRule = Rule::create(rule->getLeft(), rule->getRight(), newConstraint);
+        res.push_back(newRule);
+    }
+
+    return res;
 }
 
 std::list<ref<Rule> > Slicer::sliceDuplicates(std::list<ref<Rule> > rules)

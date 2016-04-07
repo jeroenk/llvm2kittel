@@ -23,10 +23,10 @@ bool ConstantExprEliminator::runOnFunction(llvm::Function &function)
     while (doLoop) {
         doLoop = false;
         for (llvm::Function::iterator i = function.begin(), e = function.end(); i != e; ++i) {
-            llvm::BasicBlock *bb = i;
+            llvm::BasicBlock *bb = &*i;
             bool bbchanged = false;
             for (llvm::BasicBlock::iterator ibb = bb->begin(), ebb = bb->end(); ibb != ebb; ++ibb) {
-                llvm::Instruction *inst = ibb;
+                llvm::Instruction *inst = &*ibb;
                 unsigned int n = inst->getNumOperands();
                 for (unsigned int j = 0; j < n; ++j) {
                     llvm::Value *arg = inst->getOperand(j);
@@ -76,8 +76,11 @@ llvm::Instruction *ConstantExprEliminator::replaceConstantExpr(llvm::ConstantExp
         }
 #if LLVM_VERSION < VERSION(3, 0)
         llvm::Instruction *instr = llvm::GetElementPtrInst::Create(constantExpr->getOperand(0), args.begin(), args.end(), constantExpr->getName(), before);
-#else
+#elif LLVM_VERSION < VERSION(3, 7)
         llvm::Instruction *instr = llvm::GetElementPtrInst::Create(constantExpr->getOperand(0), args, constantExpr->getName(), before);
+#else
+        llvm::Type *sourceElementType = llvm::cast<llvm::SequentialType>(constantExpr->getOperand(0)->getType()->getScalarType())->getElementType();
+        llvm::Instruction *instr = llvm::GetElementPtrInst::Create(sourceElementType, constantExpr->getOperand(0), args, constantExpr->getName(), before);
 #endif
         return instr;
     } else if (opcodeName == "ptrtoint") {

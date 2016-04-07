@@ -62,6 +62,9 @@
   #include <llvm/IR/LegacyPassManager.h>
 #endif
 #include <llvm/Analysis/Passes.h>
+#if LLVM_VERSION >= VERSION(3, 8)
+  #include <llvm/Analysis/BasicAliasAnalysis.h>
+#endif
 #if LLVM_VERSION < VERSION(3, 5)
   #include <llvm/Analysis/Verifier.h>
 #else
@@ -92,7 +95,7 @@
 void versionPrinter()
 {
     std::cout << "llvm2KITTeL" << std::endl;
-    std::cout << "Copyright 2010-2014 Stephan Falke" << std::endl;
+    std::cout << "Copyright 2010-2015 Stephan Falke" << std::endl;
     std::cout << "Version " << get_git_sha1();
     std::cout << ", using LLVM " << LLVM_MAJOR << "." << LLVM_MINOR << std::endl;
 }
@@ -151,7 +154,7 @@ void transformModule(llvm::Module *module, llvm::Function *function, NondefFacto
     llvm::TargetData *TD = NULL;
 #elif LLVM_VERSION < VERSION(3, 5)
     llvm::DataLayout *TD = NULL;
-#else
+#elif LLVM_VERSION < VERSION(3, 7)
     llvm::DataLayoutPass *TD = NULL;
 #endif
 #if LLVM_VERSION < VERSION(3, 5)
@@ -171,7 +174,7 @@ void transformModule(llvm::Module *module, llvm::Function *function, NondefFacto
     if (!ModuleDataLayout.empty()) {
         TD = new llvm::DataLayoutPass(llvm::DataLayout(ModuleDataLayout));
     }
-#else
+#elif LLVM_VERSION < VERSION(3, 7)
     TD = new llvm::DataLayoutPass();
 #endif
 
@@ -182,9 +185,11 @@ void transformModule(llvm::Module *module, llvm::Function *function, NondefFacto
     llvm::legacy::PassManager llvmPasses;
 #endif
 
+#if LLVM_VERSION < VERSION(3, 7)
     if (TD != NULL) {
         llvmPasses.add(TD);
     }
+#endif
 
     // first, do some verification of the input code before we modify it
     llvmPasses.add(llvm::createVerifierPass());
@@ -235,7 +240,11 @@ void transformModule(llvm::Module *module, llvm::Function *function, NondefFacto
     llvmPasses.add(createBasicBlockSorterPass());
 
     // Alias analysis
+#if LLVM_VERSION < VERSION(3, 8)
     llvmPasses.add(llvm::createBasicAliasAnalysisPass());
+#else
+    llvmPasses.add(llvm::createBasicAAWrapperPass());
+#endif
 
     // lastly, do some verification of the modified code
     llvmPasses.add(llvm::createVerifierPass());
@@ -252,7 +261,7 @@ std::pair<MayMustMap, std::set<llvm::GlobalVariable*> > getMayMustMap(llvm::Func
     llvm::TargetData *TD = NULL;
 #elif LLVM_VERSION < VERSION(3, 5)
     llvm::DataLayout *TD = NULL;
-#else
+#elif LLVM_VERSION < VERSION(3, 7)
     llvm::DataLayoutPass *TD = NULL;
 #endif
 #if LLVM_VERSION < VERSION(3, 5)
@@ -272,7 +281,7 @@ std::pair<MayMustMap, std::set<llvm::GlobalVariable*> > getMayMustMap(llvm::Func
     if (!ModuleDataLayout.empty()) {
         TD = new llvm::DataLayoutPass(llvm::DataLayout(ModuleDataLayout));
     }
-#else
+#elif LLVM_VERSION < VERSION(3, 7)
     TD = new llvm::DataLayoutPass();
 #endif
 
@@ -283,11 +292,17 @@ std::pair<MayMustMap, std::set<llvm::GlobalVariable*> > getMayMustMap(llvm::Func
     llvm::legacy::FunctionPassManager PM(module);
 #endif
 
+#if LLVM_VERSION < VERSION(3, 7)
     if (TD != NULL) {
         PM.add(TD);
     }
+#endif
 
+#if LLVM_VERSION < VERSION(3, 8)
     PM.add(llvm::createBasicAliasAnalysisPass());
+#else
+    PM.add(llvm::createBasicAAWrapperPass());
+#endif
 
     MemoryAnalyzer *maPass = createMemoryAnalyzerPass();
     PM.add(maPass);
@@ -446,7 +461,7 @@ int main(int argc, char *argv[])
     } else {
         module = moduleOrError.get();
     }
-#else
+#elif LLVM_VERSION == VERSION(3, 6)
     llvm::Module *module = NULL;
     llvm::ErrorOr<llvm::Module*> moduleOrError = llvm::parseBitcodeFile(buffer->getMemBufferRef(), context);
     std::error_code ec = moduleOrError.getError();
@@ -454,6 +469,15 @@ int main(int argc, char *argv[])
         errMsg = ec.message();
     } else {
         module = moduleOrError.get();
+    }
+#else
+    llvm::Module *module = NULL;
+    llvm::ErrorOr<std::unique_ptr<llvm::Module>> moduleOrError = llvm::parseBitcodeFile(buffer->getMemBufferRef(), context);
+    std::error_code ec = moduleOrError.getError();
+    if (ec) {
+        errMsg = ec.message();
+    } else {
+        module = moduleOrError->get();
     }
 #endif
 
@@ -470,10 +494,10 @@ int main(int argc, char *argv[])
 
     for (llvm::Module::iterator i = module->begin(), e = module->end(); i != e; ++i) {
         if (i->getName() == functionname) {
-            function = i;
+            function = &*i;
             break;
         } else if (functionname.empty() && SL == LanguageData::SL_C && i->getName() == "main") {
-            function = i;
+            function = &*i;
             break;
         } else if (!i->isDeclaration()) {
             if ((SL == LanguageData::SL_CUDA || SL == LanguageData::SL_OpenCL) && !LanguageData::isGPUEntryPoint(i, module, SL)) {
@@ -482,7 +506,7 @@ int main(int argc, char *argv[])
             ++numFunctions;
             functionNames.push_back(i->getName());
             if (firstFunction == NULL) {
-                firstFunction = i;
+                firstFunction = &*i;
             }
         }
     }
@@ -721,6 +745,7 @@ int main(int argc, char *argv[])
                 slicedRules = slicer.sliceConstraint(slicedRules);
                 slicedRules = slicer.sliceDefined(slicedRules);
                 slicedRules = slicer.sliceStillUsed(slicedRules, conservativeSlicing);
+                slicedRules = slicer.sliceTrivialNondefConstraints(slicedRules);
                 slicedRules = slicer.sliceDuplicates(slicedRules);
             }
             if (boundedIntegers) {
