@@ -11,7 +11,7 @@ GPUVerify's `--stop-at-opt` option.
 
 ## Author
 
-Stephan Falke
+Stephan Falke, Jeroen Ketema, Marc Brockschmidt
 
 The OpenCL and CUDA related changes are by Jeroen Ketema.
 
