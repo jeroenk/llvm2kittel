@@ -37,7 +37,14 @@ public:
 
     bool runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM);
 
-    virtual const char *getPassName() const { return "Very Selective Hoister"; }
+#if LLVM_VERSION < VERSION(4, 0)
+    virtual const char *getPassName() const
+#else
+    virtual llvm::StringRef getPassName() const
+#endif
+    {
+        return "Very Selective Hoister";
+    }
 
     virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
 
